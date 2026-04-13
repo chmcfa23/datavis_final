@@ -1,0 +1,90 @@
+---
+title: "An Interactive Map of Bigfoot Sightings"
+author: "Claire McFarland"
+format: html
+editor: visual
+embed-sesources: TRUE
+---
+
+**Abstract**
+
+\[save for end of project, summary of findings/data\]
+
+```{r}
+#| message: false
+#| warning: false
+
+# install.packages("tidytuesdayR")
+
+tuesdata <- tidytuesdayR::tt_load('2022-09-13')
+tuesdata <- tidytuesdayR::tt_load(2022, week = 37)
+
+bigfoot <- tuesdata$bigfoot
+
+# Or read in the data manually
+
+bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-09-13/bigfoot.csv')
+
+```
+
+```{r}
+# install.packages("leaflet")
+library(leaflet)
+library(dplyr)
+```
+
+
+**Introduction**
+
+*Do you believe in Bigfoot?* Possibly the most famous North American cryptid, Bigfoot sightings have become so ubiquitous that an entire organization of researchers was founded to investigate the credibility of these claims, and even venture into describing the ecology of their alleged creature.
+
+**Data Tidying**
+
+For the map with the stories of sightings:
+
+```{r}
+bigfoot_stories <- bigfoot %>%
+  filter(!is.na(observed)) %>%
+  filter(!is.na(location_details))
+```
+
+\*note: 789 observations were removed at this stage for having missing observation text and location details
+
+**Visualizations**
+
+```{r}
+content <- bigfoot_stories %>%
+  mutate(popup = paste0('<a href =', bigfoot_stories$location_details, '>',
+                        bigfoot_stories$observed, '</a>'))
+```
+
+```{r}
+bigfoot_map <- leaflet(bigfoot_stories) |>
+  setView(lng = -98.583, lat = 39.833, zoom = 1) |>
+  addTiles() |>
+  addProviderTiles(providers$Esri.WorldPhysical) |>
+  addMarkers(lng = bigfoot_stories$longitude, lat = bigfoot_stories$latitude,
+             clusterOptions = markerClusterOptions(),
+             popup = content$popup)
+
+```
+
+\*note: 976 sightings were removed from this interactive map as they did not provide the longitudes and latitudes.
+
+```{r}
+bigfoot_map
+```
+
+-   opporunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
+
+-   No binary variables, BUT there are Class A, Class B, and Class C "encounters" which correspond to credibility of accounts. Could be tweaked.
+
+-   Whole bunch of other weather-y variables that could be used to make just typical visualizations. Thinking definitely a line plot at some point
+
+-   ALSO a date variable.
+
+-   close reads
+
+-   Commonly used words/terms with tidytext
+
+-   cite BFRO, not just tidytuesday
