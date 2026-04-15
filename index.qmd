@@ -28,11 +28,13 @@ bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/ti
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 # install.packages("leaflet")
 library(leaflet)
 library(dplyr)
+library(lubridate)
 ```
-
 
 **Introduction**
 
@@ -50,7 +52,19 @@ bigfoot_stories <- bigfoot %>%
 
 \*note: 789 observations were removed at this stage for having missing observation text and location details
 
+For the number of sightings over time:
+
+```{r}
+sightings_over_time <- bigfoot %>%
+  filter(!is.na(date)) %>%
+  mutate(
+    date = ymd(date)
+  )
+```
+
 **Visualizations**
+
+The interactive map below was made using leaflet. It simply displays every bigfoot sighting that has longitude and latitude information as well as the "story" behind the encounter and more descriptive location information.
 
 ```{r}
 content <- bigfoot_stories %>%
@@ -74,6 +88,16 @@ bigfoot_map <- leaflet(bigfoot_stories) |>
 ```{r}
 bigfoot_map
 ```
+
+.
+
+.
+
+.
+
+.
+
+Notes:
 
 -   opporunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
 
