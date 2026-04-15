@@ -10,6 +10,8 @@ embed-sesources: TRUE
 
 \[save for end of project, summary of findings/data\]
 
+Here I read in the data from TidyTuesday:
+
 ```{r}
 #| message: false
 #| warning: false
@@ -31,14 +33,31 @@ bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/ti
 #| message: false
 #| warning: false
 # install.packages("leaflet")
+# install.packages("tigris")
+# install.packages("janitor")
+# install.packages("patchwork")
 library(leaflet)
+library(readr)
 library(dplyr)
 library(lubridate)
+library(tigris)
+library(sf)
+library(ggplot2)
+library(janitor)
+library(stringr)
+library(ggrepel)
+library(patchwork)
 ```
 
 **Introduction**
 
-*Do you believe in Bigfoot?* Possibly the most famous North American cryptid, Bigfoot sightings have become so ubiquitous that an entire organization of researchers was founded to investigate the credibility of these claims, and even venture into describing the ecology of their alleged creature.
+*Do you believe in Bigfoot?* Possibly the most famous North American cryptid, Bigfoot sightings have become so ubiquitous that an entire organization of researchers was founded to investigate the credibility of these claims, and even venture into describing the ecology of their alleged creature. This organization is known as the BFRO (Bigfoot Field Researchers Organization).
+
+Every reported Bigfoot sighting is stored in the BFRO's website, bfro.net. Here, BFRO's scholars record the witness's story on the encounter, collect information on variables related to climate and location, and classify the encounter into Class A, Class B, or Class C. Class A encounters are the most definitive, ruling out animals, lying/impaired witnesses, or otherwise "misidentifications". Class B encounters are less credible, with the potential for misidentifications or unclear evidence. And Class C encounters may be second or third-hand accounts, with little or untraceable evidence.
+
+On September 13th, 2022, TidyTuesday provided a dataset scraped from the BFRO's catalogue of Bigfoot encounters to their weekly blog. This dataset contains many of the aforementioned climate and location variables as well as their credibility class and- *very* helpfully- the approximate latitude and longitude of the encounter.
+
+With over 5,000 entries in this dataset, and 28 of these variables, the opportunities for visualizing Bigfoot sightings are endless. But my prevailing question is: Where and When does this tall, furry, cryptid like to show his face? During what kinds of conditions is he likely to be caught on a stroll? And where exactly do he and his fellow sasquatches live?
 
 **Data Tidying**
 
@@ -58,7 +77,7 @@ For the number of sightings over time:
 sightings_over_time <- bigfoot %>%
   filter(!is.na(date)) %>%
   mutate(
-    date = ymd(date)
+    date = as.Date(date)
   )
 ```
 
@@ -89,13 +108,38 @@ bigfoot_map <- leaflet(bigfoot_stories) |>
 bigfoot_map
 ```
 
-.
+This map is nice because you can zoom in on each encounter and see *exactly* where each Bigfoot encounter occured, but because of the subgrouping of the pins, it is difficult to determine the geographic density of these sightings. We have the *stories*, but there is a limit to how much information we can fit into each popup, really with just space for the witness's written/spoken testimony.
 
-.
+I now want to generate a map of North America where each of the 50 United States are shaded according to how many Bigfoot encounters have occured within it. If I were lucky, there would be no Bigfoot sightings in Alaska and I could use the United States map provided by the "maps" R package;
 
-.
+```{r}
+bigfoot %>%
+  filter(state == "Alaska") %>%
+  summarize(
+    n_sightings = n()
+  )
+```
 
-.
+But alas. Nothing is ever easy. So. I will have to generate my own map using sf. And for this, I required the help of Google, where I found the NCEAS Learning Hub's lesson on spatial data in which they just-so-happened to be generating a map of all 50 states. So all I had to do was follow along and try not to get lost.
+
+```{r}
+## read data
+# cb = T + 20m resol, removes American Samoa, Maraina Islands, Guam and Virgin Islands
+us_states_shift <- states(cb = TRUE, 
+                    resolution = "20m") %>%
+  shift_geometry #shift geometry for easy plotting
+
+## read data
+ecoregions_cont_us <- read_sf(here::here("Data/Aggr_Ecoregions_2015.shp"))
+
+unique(ecoregions_cont_us$WSA9_NAME)
+st_crs(ecoregions_cont_us) #Albers, NAD83
+
+#adding Alaska
+ecoregion_ak_l3 <- read_sf(here::here("Data/ak_eco_l3.shp"))
+st_crs(ecoregion_ak_l3) # EPSG",3338, Alaska Albers
+plot(ecoregion_ak_l3$geometry)
+```
 
 Notes:
 
