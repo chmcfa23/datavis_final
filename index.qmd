@@ -141,9 +141,71 @@ st_crs(ecoregion_ak_l3) # EPSG",3338, Alaska Albers
 plot(ecoregion_ak_l3$geometry)
 ```
 
+Now that we have Alaska, we must add it to the rest of the United States. To reach this end, we must first create a new dataset that assigns states to the ecoregions defined in ecoregions_cont_us. NCEAS again provides the code for this transformation.
+
+```{r}
+us_states <- states(cb = TRUE, 
+                    resolution = "20m")
+
+## Creating vectors with state code for each casc region
+northeast <- c("CT", "DE", "KY", "MA", "MD", "ME", "NH", "NJ", "NY", "PA", "RI", "VA", "VT", "WV", "DC")
+
+southeast <- c("NC", "SC", "GA", "AL", "MS", "FL", "TN", "AR") 
+
+midwest <- c("MN", "IA", "MO", "WI", "IN", "IL", "MI", "OH")
+
+northcentral <- c("CO", "KS", "MT", "ND", "NE", "SD", "WY")
+
+southcentral <- c("OK", "TX", "NM", "LA")
+
+northwest <- c("WA", "OR", "ID")
+
+southwest <- c("AZ", "NV", "UT", "CA")
+
+alaska <- "AK"
+
+## to re-divvy the states into their respective regions WITH their geometries
+
+us_state_casc <- us_states %>% 
+  select(GEOID, STUSPS, NAME) %>%
+  st_drop_geometry() %>% 
+  mutate(casc_region = case_when(STUSPS %in% alaska ~ "Alaska",
+                                 STUSPS %in% southwest ~ "South West",
+                                 STUSPS %in% northwest ~ "North West",
+                                 STUSPS %in% southcentral ~ "South Central",
+                                 STUSPS %in% northcentral ~ "North Central",
+                                 STUSPS %in% midwest ~ "Midwest",
+                                 STUSPS %in% southeast ~ "South East",
+                                 STUSPS %in% northeast ~ "North East",
+                                 TRUE ~ "none"))
+
+write_csv(us_state_casc, "Data/state_by_casc_region.csv")
+```
+
+Now that we have a dataset with the GEO ids that map to each state, we can do some joining to connect those ids to the polygons in our shifted map of the U.S.
+
+```{r}
+## read data
+us_state_casc <- read_csv("data/state_by_casc_region.csv")
+
+## merge polygons to get CASC region areas
+casc_shp <- us_states %>% 
+  left_join(us_state_casc, by= c("GEOID", "STUSPS", "NAME")) %>% 
+  group_by(casc_region) %>% 
+  summarise(geometry = st_union(geometry))
+
+plot(casc_shp$geometry)
+
+## shift geometries for easy plotting
+casc_shift <- casc_shp %>% 
+  shift_geometry()
+
+plot(casc_shift$geometry)
+```
+
 Notes:
 
--   opporunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
+-   opportunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
 
 -   No binary variables, BUT there are Class A, Class B, and Class C "encounters" which correspond to credibility of accounts. Could be tweaked.
 
