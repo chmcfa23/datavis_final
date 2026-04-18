@@ -34,8 +34,7 @@ bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/ti
 #| warning: false
 # install.packages("leaflet")
 # install.packages("tigris")
-# install.packages("janitor")
-# install.packages("patchwork")
+# install.packages("USABoundaries")
 library(leaflet)
 library(readr)
 library(dplyr)
@@ -43,10 +42,6 @@ library(lubridate)
 library(tigris)
 library(sf)
 library(ggplot2)
-library(janitor)
-library(stringr)
-library(ggrepel)
-library(patchwork)
 ```
 
 **Introduction**
@@ -120,87 +115,21 @@ bigfoot %>%
   )
 ```
 
-But alas. Nothing is ever easy. So. I will have to generate my own map using sf. And for this, I required the help of Google, where I found the NCEAS Learning Hub's lesson on spatial data in which they just-so-happened to be generating a map of all 50 states. So all I had to do was follow along and try not to get lost.
+But alas. Nothing is ever easy. 
+
 
 ```{r}
-## read data
-# cb = T + 20m resol, removes American Samoa, Maraina Islands, Guam and Virgin Islands
-us_states_shift <- states(cb = TRUE, 
-                    resolution = "20m") %>%
-  shift_geometry #shift geometry for easy plotting
+states <- states(cb = TRUE)
 
-## read data
-ecoregions_cont_us <- read_sf(here::here("Data/Aggr_Ecoregions_2015.shp"))
+library(USAboundaries)
 
-unique(ecoregions_cont_us$WSA9_NAME)
-st_crs(ecoregions_cont_us) #Albers, NAD83
+states <- us_states() %>%
+  filter(name != "Hawaii", name != "Puerto Rico") %>%
+    st_crop(xmin = 160, xmax = -60,
+            ymin = 0, ymax = 70)
 
-#adding Alaska
-ecoregion_ak_l3 <- read_sf(here::here("Data/ak_eco_l3.shp"))
-st_crs(ecoregion_ak_l3) # EPSG",3338, Alaska Albers
-plot(ecoregion_ak_l3$geometry)
-```
-
-Now that we have Alaska, we must add it to the rest of the United States. To reach this end, we must first create a new dataset that assigns states to the ecoregions defined in ecoregions_cont_us. NCEAS again provides the code for this transformation.
-
-```{r}
-us_states <- states(cb = TRUE, 
-                    resolution = "20m")
-
-## Creating vectors with state code for each casc region
-northeast <- c("CT", "DE", "KY", "MA", "MD", "ME", "NH", "NJ", "NY", "PA", "RI", "VA", "VT", "WV", "DC")
-
-southeast <- c("NC", "SC", "GA", "AL", "MS", "FL", "TN", "AR") 
-
-midwest <- c("MN", "IA", "MO", "WI", "IN", "IL", "MI", "OH")
-
-northcentral <- c("CO", "KS", "MT", "ND", "NE", "SD", "WY")
-
-southcentral <- c("OK", "TX", "NM", "LA")
-
-northwest <- c("WA", "OR", "ID")
-
-southwest <- c("AZ", "NV", "UT", "CA")
-
-alaska <- "AK"
-
-## to re-divvy the states into their respective regions WITH their geometries
-
-us_state_casc <- us_states %>% 
-  select(GEOID, STUSPS, NAME) %>%
-  st_drop_geometry() %>% 
-  mutate(casc_region = case_when(STUSPS %in% alaska ~ "Alaska",
-                                 STUSPS %in% southwest ~ "South West",
-                                 STUSPS %in% northwest ~ "North West",
-                                 STUSPS %in% southcentral ~ "South Central",
-                                 STUSPS %in% northcentral ~ "North Central",
-                                 STUSPS %in% midwest ~ "Midwest",
-                                 STUSPS %in% southeast ~ "South East",
-                                 STUSPS %in% northeast ~ "North East",
-                                 TRUE ~ "none"))
-
-write_csv(us_state_casc, "Data/state_by_casc_region.csv")
-```
-
-Now that we have a dataset with the GEO ids that map to each state, we can do some joining to connect those ids to the polygons in our shifted map of the U.S.
-
-```{r}
-## read data
-us_state_casc <- read_csv("data/state_by_casc_region.csv")
-
-## merge polygons to get CASC region areas
-casc_shp <- us_states %>% 
-  left_join(us_state_casc, by= c("GEOID", "STUSPS", "NAME")) %>% 
-  group_by(casc_region) %>% 
-  summarise(geometry = st_union(geometry))
-
-plot(casc_shp$geometry)
-
-## shift geometries for easy plotting
-casc_shift <- casc_shp %>% 
-  shift_geometry()
-
-plot(casc_shift$geometry)
+ggplot(data = states) +
+  geom_sf()
 ```
 
 Notes:
@@ -218,3 +147,12 @@ Notes:
 -   Commonly used words/terms with tidytext
 
 -   cite BFRO, not just tidytuesday
+
+In tigris
+states <- states(cb = TRUE)
+
+library(USABoundaries)
+states <- us_states() use with geom_sf() in ggplot, have filter out hawaii
+
+
+claude might be resource
