@@ -103,9 +103,9 @@ bigfoot_map <- leaflet(bigfoot_stories) |>
 bigfoot_map
 ```
 
-This map is nice because you can zoom in on each encounter and see *exactly* where each Bigfoot encounter occured, but because of the subgrouping of the pins, it is difficult to determine the geographic density of these sightings. We have the *stories*, but there is a limit to how much information we can fit into each popup, really with just space for the witness's written/spoken testimony.
+This map is nice because you can zoom in on each encounter and see *exactly* where each Bigfoot encounter occured. But because of the subgrouping of the pins, it is difficult to determine the geographic density of these sightings. It certainly *looks* like there may be some patterns. For example, in the Midwest, there appears to be a somewhat lower number of pins when you zoom out to look at the entire country, but it is difficult to determine for sure. We have the *stories*, but there is a limit to how much information we can fit into each pop-up, really with just space for the witness's written/spoken testimony.
 
-I now want to generate a map of North America where each of the 50 United States are shaded according to how many Bigfoot encounters have occured within it. If I were lucky, there would be no Bigfoot sightings in Alaska and I could use the United States map provided by the "maps" R package;
+To demonstrate the sighting density in each state, I now want to generate a map of North America where each of the 50 United States are shaded according to how many Bigfoot encounters have occured within it. If I were lucky, there would be no Bigfoot sightings in Alaska and I could simply use the United States map provided by the "maps" R package;
 
 ```{r}
 bigfoot %>%
@@ -115,8 +115,7 @@ bigfoot %>%
   )
 ```
 
-But alas. Nothing is ever easy. 
-
+But alas. We would be missing out on a substantial 20 sightings by excluding Alaska.
 
 ```{r}
 states <- states(cb = TRUE)
@@ -125,12 +124,26 @@ library(USAboundaries)
 
 states <- us_states() %>%
   filter(name != "Hawaii", name != "Puerto Rico") %>%
-    st_crop(xmin = 160, xmax = -60,
+    st_crop(xmin = 130, xmax = -60,
             ymin = 0, ymax = 70)
 
-ggplot(data = states) +
-  geom_sf()
+sightings_by_state <- bigfoot %>%
+  group_by(state) %>%
+  summarize(
+    n_sightings = n()
+  )
+
+sightings_joined <- full_join(states, sightings_by_state, join_by(name == state))
+
+ggplot(data = sightings_joined) +
+  geom_sf(aes(fill = n_sightings)) +
+  scale_fill_viridis_c(direction = -1) +
+  coord_sf(xlim = c(-170, -60), ylim = c(20, 73)) +
+  labs(fill = "Number of Sightings") +
+  theme_void()
 ```
+
+Now this is where it really got interesting. Washington appears to have *by far* the most Bigfoot sightings, clocking in at over 600
 
 Notes:
 
@@ -148,11 +161,8 @@ Notes:
 
 -   cite BFRO, not just tidytuesday
 
-In tigris
-states <- states(cb = TRUE)
+In tigris states \<- states(cb = TRUE)
 
-library(USABoundaries)
-states <- us_states() use with geom_sf() in ggplot, have filter out hawaii
-
+library(USABoundaries) states \<- us_states() use with geom_sf() in ggplot, have filter out hawaii
 
 claude might be resource

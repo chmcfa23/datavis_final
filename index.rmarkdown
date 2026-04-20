@@ -1,0 +1,169 @@
+---
+title: "An Interactive Map of Bigfoot Sightings"
+author: "Claire McFarland"
+format: html
+editor: visual
+embed-sesources: TRUE
+---
+
+**Abstract**
+
+\[save for end of project, summary of findings/data\]
+
+Here I read in the data from TidyTuesday:
+
+```{r}
+#| message: false
+#| warning: false
+
+# install.packages("tidytuesdayR")
+
+tuesdata <- tidytuesdayR::tt_load('2022-09-13')
+tuesdata <- tidytuesdayR::tt_load(2022, week = 37)
+
+bigfoot <- tuesdata$bigfoot
+
+# Or read in the data manually
+
+bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-09-13/bigfoot.csv')
+
+```
+
+```{r}
+#| message: false
+#| warning: false
+# install.packages("leaflet")
+# install.packages("tigris")
+# install.packages("USABoundaries")
+library(leaflet)
+library(readr)
+library(dplyr)
+library(lubridate)
+library(tigris)
+library(sf)
+library(ggplot2)
+```
+
+**Introduction**
+
+*Do you believe in Bigfoot?* Possibly the most famous North American cryptid, Bigfoot sightings have become so ubiquitous that an entire organization of researchers was founded to investigate the credibility of these claims, and even venture into describing the ecology of their alleged creature. This organization is known as the BFRO (Bigfoot Field Researchers Organization).
+
+Every reported Bigfoot sighting is stored in the BFRO's website, bfro.net. Here, BFRO's scholars record the witness's story on the encounter, collect information on variables related to climate and location, and classify the encounter into Class A, Class B, or Class C. Class A encounters are the most definitive, ruling out animals, lying/impaired witnesses, or otherwise "misidentifications". Class B encounters are less credible, with the potential for misidentifications or unclear evidence. And Class C encounters may be second or third-hand accounts, with little or untraceable evidence.
+
+On September 13th, 2022, TidyTuesday provided a dataset scraped from the BFRO's catalogue of Bigfoot encounters to their weekly blog. This dataset contains many of the aforementioned climate and location variables as well as their credibility class and- *very* helpfully- the approximate latitude and longitude of the encounter.
+
+With over 5,000 entries in this dataset, and 28 of these variables, the opportunities for visualizing Bigfoot sightings are endless. But my prevailing question is: Where and When does this tall, furry, cryptid like to show his face? During what kinds of conditions is he likely to be caught on a stroll? And where exactly do he and his fellow sasquatches live?
+
+**Data Tidying**
+
+For the map with the stories of sightings:
+
+```{r}
+bigfoot_stories <- bigfoot %>%
+  filter(!is.na(observed)) %>%
+  filter(!is.na(location_details))
+```
+
+\*note: 789 observations were removed at this stage for having missing observation text and location details
+
+For the number of sightings over time:
+
+```{r}
+sightings_over_time <- bigfoot %>%
+  filter(!is.na(date)) %>%
+  mutate(
+    date = as.Date(date)
+  )
+```
+
+**Visualizations**
+
+The interactive map below was made using leaflet. It simply displays every bigfoot sighting that has longitude and latitude information as well as the "story" behind the encounter and more descriptive location information.
+
+```{r}
+content <- bigfoot_stories %>%
+  mutate(popup = paste0('<a href =', bigfoot_stories$location_details, '>',
+                        bigfoot_stories$observed, '</a>'))
+```
+
+```{r}
+bigfoot_map <- leaflet(bigfoot_stories) |>
+  setView(lng = -98.583, lat = 39.833, zoom = 1) |>
+  addTiles() |>
+  addProviderTiles(providers$Esri.WorldPhysical) |>
+  addMarkers(lng = bigfoot_stories$longitude, lat = bigfoot_stories$latitude,
+             clusterOptions = markerClusterOptions(),
+             popup = content$popup)
+
+```
+
+\*note: 976 sightings were removed from this interactive map as they did not provide the longitudes and latitudes.
+
+```{r}
+bigfoot_map
+```
+
+This map is nice because you can zoom in on each encounter and see *exactly* where each Bigfoot encounter occured. But because of the subgrouping of the pins, it is difficult to determine the geographic density of these sightings. It certainly *looks* like there may be some patterns. For example, in the Midwest, there appears to be a somewhat lower number of pins when you zoom out to look at the entire country, but it is difficult to determine for sure. We have the *stories*, but there is a limit to how much information we can fit into each pop-up, really with just space for the witness's written/spoken testimony.
+
+To demonstrate the sighting density in each state, I now want to generate a map of North America where each of the 50 United States are shaded according to how many Bigfoot encounters have occured within it. If I were lucky, there would be no Bigfoot sightings in Alaska and I could simply use the United States map provided by the "maps" R package;
+
+```{r}
+bigfoot %>%
+  filter(state == "Alaska") %>%
+  summarize(
+    n_sightings = n()
+  )
+```
+
+But alas. We would be missing out on a substantial 20 sightings by excluding Alaska.
+
+```{r}
+states <- states(cb = TRUE)
+
+library(USAboundaries)
+
+states <- us_states() %>%
+  filter(name != "Hawaii", name != "Puerto Rico") %>%
+    st_crop(xmin = 130, xmax = -60,
+            ymin = 0, ymax = 70)
+
+sightings_by_state <- bigfoot %>%
+  group_by(state) %>%
+  summarize(
+    n_sightings = n()
+  )
+
+sightings_joined <- full_join(states, sightings_by_state, join_by(name == state))
+
+ggplot(data = sightings_joined) +
+  geom_sf(aes(fill = n_sightings)) +
+  scale_fill_viridis_c(direction = -1) +
+  coord_sf(xlim = c(-170, -60), ylim = c(20, 73)) +
+  labs(fill = "Number of Sightings") +
+  theme_void()
+```
+
+Now this is where it really got interesting. Washington appears to have *by far* the most Bigfoot sightings, clocking in at over 600
+
+Notes:
+
+-   opportunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
+
+-   No binary variables, BUT there are Class A, Class B, and Class C "encounters" which correspond to credibility of accounts. Could be tweaked.
+
+-   Whole bunch of other weather-y variables that could be used to make just typical visualizations. Thinking definitely a line plot at some point
+
+-   ALSO a date variable.
+
+-   close reads
+
+-   Commonly used words/terms with tidytext
+
+-   cite BFRO, not just tidytuesday
+
+In tigris states \<- states(cb = TRUE)
+
+library(USABoundaries) states \<- us_states() use with geom_sf() in ggplot, have filter out hawaii
+
+claude might be resource
+
