@@ -64,17 +64,7 @@ bigfoot_stories <- bigfoot %>%
   filter(!is.na(location_details))
 ```
 
-\*note: 789 observations were removed at this stage for having missing observation text and location details
-
-For the number of sightings over time:
-
-```{r}
-sightings_over_time <- bigfoot %>%
-  filter(!is.na(date)) %>%
-  mutate(
-    date = as.Date(date)
-  )
-```
+\*note: 789 observations were removed at this stage for having missing observation text and location detail.
 
 **Visualizations**
 
@@ -109,13 +99,16 @@ To demonstrate the sighting density in each state, I now want to generate a map 
 
 ```{r}
 bigfoot %>%
-  filter(state == "Alaska") %>%
+  filter(state == "Alaska" | state == "Hawaii") %>%
+  group_by(state) %>%
   summarize(
     n_sightings = n()
   )
 ```
 
 But alas. We would be missing out on a substantial 20 sightings by excluding Alaska.
+
+So instead, I will need to use the R package USAboundaries to get the geometries for each of the 48 contiguous states and also Alaska and join this data with a dataset containing the number of sightings per state.
 
 ```{r}
 states <- states(cb = TRUE)
@@ -143,7 +136,72 @@ ggplot(data = sightings_joined) +
   theme_void()
 ```
 
-Now this is where it really got interesting. Washington appears to have *by far* the most Bigfoot sightings, clocking in at over 600
+Now this is where it really got interesting. Washington appears to have *by far* the most Bigfoot sightings, clocking in at over 600. What makes Washington different from other states? How dramatic is its lead? For my next visualization, I want to investigate these questions by generating a line graph that depicts the rise of bigfoot sightings over time in the top five states with the most sightings over all. We conveniently already have a date variable in the original dataset, so it's really just a matter of figuring out how to generate a line plot that shows the **cumulative** number of cases at each "point."
+
+```{r}
+sightings_by_state %>%
+  slice_max(order_by = n_sightings, n = 5)
+```
+
+```{r}
+sightings_over_time <- bigfoot %>%
+  filter(!is.na(date)) %>%
+  filter(state == "Washington"|
+         state == "California" |
+         state == "Ohio" |
+         state == "Florida" |
+         state == "Oregon") %>%
+  mutate(
+    date = ymd(date)
+  ) %>%
+  group_by(state, date) %>%
+  summarize(
+    n_sightings = n()
+  ) %>%
+  mutate(
+    cumulative_sightings = cumsum(n_sightings)
+    )
+
+
+ggplot(sightings_over_time, aes(x = date, 
+                                y = cumulative_sightings, 
+                                color = state)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Bigfoot Sightings Over Time",
+    x = "Date",
+    y = "Total Sightings",
+    color = "State"
+  ) + 
+  scale_color_manual(values = c("red","seagreen2","slateblue2","thistle2","yellow")) +
+  scale_x_date(limit=c(as.Date("1950-01-01"),as.Date("2026-04-24"))) +
+  labs(caption = "*7 sightings have been excluded as they occured before 01-01-1950. Axis scaled for ease of reading.") +
+  theme_minimal() 
+```
+
+With this visualization, we can make a few minor observations. The first is that Washington has, more or less, always led the 50 states in Bigfoot sightings. The only time where Washington was not in the lead was in the 60s, when California briefly had more. Other interesting observations; ever since approximately 2005, sightings in both Oregon and California have slowed to an almost pleateaued rate. This is especially interesting because of these states' close proximity to Washington, which is still experiencing sightings at a higher rate than the other 4 states.
+
+Why is this? There could be any number of reasons. Washington state is often regarded as having incredible wilderness. This, coupled with a large, outdoorsy population, may be one explanation. There are simply many people who enjoy being outside, which is, consequently, where Bigfoot also enjoys being.
+
+It may also be a culture of superstition and belief in Bigfoot. A quick, brief google search on "Washington Bigfoot Culture" yielded results such as "Skagit-Squatch Musuem", "Metaline Falls Bigfoot Festival", and a Youtube channel called the "Olympic Project," based in WA, and "committed to documenting the existence of Sasquatch through science and education" (the channel has been inactive for 11 years but made headlines on squatchable.com in 2025 for their discovery of "bigfoot nests" located near a salmon-rich riverbed, believed to be one of their food sources.)
+
+Regardless, with the large sample size to choose from, I believe Washington is a good candidate for my final visualization; a binomial regression seeking to predict the "quality" of a sighting. We have been given 3 levels of quality; Class A (best), Class B (fair), and Class C(poor). For the sake of simplicity, however, I am just going to code the quality as 1 (Class A, best) and 0 (Class C, worst), with the assumption that sightings around the middle of the regression line will be comparable to Class B encounters, as they have a 50/50 chance of being considered good or poor.
+
+Because the BFRO cites visibility as a major determinant of an encounter's quality, I am going to primarily use variables that I think impact a person's ability to accurately see a sasquatch through any kind of weather phenomenon, such as v**isibility, precip_intensity, wind_speed,** and **precip_type.**
+
+First, I have to tidy the data by filtering out just the cases in Washington, coding the **classification** variable as binomial, and coding NAs in the precip_type variable as "None," with the assumption (and hope) that most of them are coded as NA because there was no precipitation, not because the precipitation type was not recorded.
+
+```{r}
+bigfoot_quality <- bigfoot %>%
+  filter(state == "Washington") %>%
+  mutate(
+    quality = case_when(
+      classification == "Class A" ~ 1,
+      classification ==  "Class B"~ 0,
+      classification == "Class C" ~ 0
+  )
+  )
+```
 
 Notes:
 
