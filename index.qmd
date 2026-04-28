@@ -35,6 +35,7 @@ bigfoot <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/ti
 # install.packages("leaflet")
 # install.packages("tigris")
 # install.packages("USABoundaries")
+# install.packages("ggeffects")
 library(leaflet)
 library(readr)
 library(dplyr)
@@ -42,6 +43,8 @@ library(lubridate)
 library(tigris)
 library(sf)
 library(ggplot2)
+library(broom)
+library(ggeffects)
 ```
 
 **Introduction**
@@ -187,7 +190,7 @@ It may also be a culture of superstition and belief in Bigfoot. A quick, brief g
 
 Regardless, with the large sample size to choose from, I believe Washington is a good candidate for my final visualization; a binomial regression seeking to predict the "quality" of a sighting. We have been given 3 levels of quality; Class A (best), Class B (fair), and Class C(poor). For the sake of simplicity, however, I am just going to code the quality as 1 (Class A, best) and 0 (Class C, worst), with the assumption that sightings around the middle of the regression line will be comparable to Class B encounters, as they have a 50/50 chance of being considered good or poor.
 
-Because the BFRO cites visibility as a major determinant of an encounter's quality, I am going to primarily use variables that I think impact a person's ability to accurately see a sasquatch through any kind of weather phenomenon, such as v**isibility, precip_intensity, wind_speed,** and **precip_type.**
+Because the BFRO cites visibility as a major determinant of an encounter's quality, I am going to primarily use variables that I think impact a person's ability to accurately see a sasquatch through any kind of weather phenomenon, such as **visibility, precip_intensity,** and **precip_type.**
 
 First, I have to tidy the data by filtering out just the cases in Washington, coding the **classification** variable as binomial, and coding NAs in the precip_type variable as "None," with the assumption (and hope) that most of them are coded as NA because there was no precipitation, not because the precipitation type was not recorded.
 
@@ -197,10 +200,28 @@ bigfoot_quality <- bigfoot %>%
   mutate(
     quality = case_when(
       classification == "Class A" ~ 1,
-      classification ==  "Class B"~ 0,
-      classification == "Class C" ~ 0
-  )
-  )
+      classification ==  "Class B"~ 2,
+      classification == "Class C" ~ 3
+  ),
+    precip_type = factor(case_when(
+      precip_type == "rain" ~ "rain",
+      precip_type == "snow" ~ "snow",
+      is.na(precip_type) ~ "none"
+    ))
+  ) 
+
+mod_quality <- lm(quality ~ visibility + precip_intensity + precip_type, data = bigfoot_quality)
+
+pred_quality <- ggpredict(mod_quality, terms = c("visibility [all]",
+                              "precip_intensity [all]",
+                              "precip_type")) |>
+  as.data.frame(terms_to_colnames = TRUE) |>
+  as_tibble()
+
+ggplot(data = pred_quality, aes(x=visibility, y=predicted)) +
+  geom_line(aes(x = visibility, y = quality)) +
+  facet_wrap(~precip_type) +
+  scale_color_viridis_d(option = "D") 
 ```
 
 Notes:
