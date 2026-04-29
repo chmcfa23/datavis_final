@@ -1,5 +1,7 @@
-# Untitled
-
+---
+title: "Untitled"
+format: gfm
+---
 
 ## Data
 
@@ -7,6 +9,7 @@
 
 ## Graph title
 
-``` r
+```{r}
 #code to create graph, mostly exclude data prep
 ```
+
