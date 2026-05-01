@@ -6,9 +6,9 @@ editor: visual
 embed-sesources: TRUE
 ---
 
-**Abstract**
+## **Abstract**
 
-\[save for end of project, summary of findings/data\]
+Bigfoot is one of North America's most famous cryptids. First spotted in 1958, sasquatch sightings since have numbered in the thousands, with varying levels of scientific credibility. A foundation, the Bigfoot Field Researchers' Organization (BFRO) was founded in 1995 to head investigations into this hairy curiosity. Thanks to the Github blog TidyTuesday scraping data from the BFRO's website, we could perform several analyses. First was a map of pins where each encounter occurred. Second, a density map of each U.S. state shaded by the number of sightings. Thirdly, we generated a line plot displaying the cumulative number of sightings in the top five states with the most sightings. Interestingly, it appears that Washington has more or less always had the lead in sightings, at least among the other leaders. Oregon and California, too, have always had a high number of sightings, but since 2010, they both appear to have abruptly plateaued. Lastly, I performed a linear regression to observe if the climate variables provided by the BFRO significantly impact the credibility of an encounter. The notable observation from this visualization was that encounters with clear weather, of course, have the highest credibility, but they are somewhat comparable to encounters that occurred on snowy days, with rainy days (across all intensities) appearing to have the least credibility. This may be because heavy snow has the potential to leave lasting footprints, which the BFRO might consider stronger evidence.
 
 Here I read in the data from TidyTuesday:
 
@@ -45,9 +45,10 @@ library(sf)
 library(ggplot2)
 library(broom)
 library(ggeffects)
+library(plotly)
 ```
 
-**Introduction**
+## **Introduction**
 
 *Do you believe in Bigfoot?* Possibly the most famous North American cryptid, Bigfoot sightings have become so ubiquitous that an entire organization of researchers was founded to investigate the credibility of these claims, and even venture into describing the ecology of their alleged creature. This organization is known as the BFRO (Bigfoot Field Researchers Organization).
 
@@ -57,7 +58,7 @@ On September 13th, 2022, TidyTuesday provided a dataset scraped from the BFRO's 
 
 With over 5,000 entries in this dataset, and 28 of these variables, the opportunities for visualizing Bigfoot sightings are endless. But my prevailing question is: Where and When does this tall, furry, cryptid like to show his face? During what kinds of conditions is he likely to be caught on a stroll? And where exactly do he and his fellow sasquatches live?
 
-**Data Tidying**
+## **Data Tidying**
 
 For the map with the stories of sightings:
 
@@ -69,7 +70,7 @@ bigfoot_stories <- bigfoot %>%
 
 \*note: 789 observations were removed at this stage for having missing observation text and location detail.
 
-**Visualizations**
+## **Visualizations**
 
 The interactive map below was made using leaflet. It simply displays every bigfoot sighting that has longitude and latitude information as well as the "story" behind the encounter and more descriptive location information.
 
@@ -188,11 +189,11 @@ Why is this? There could be any number of reasons. Washington state is often reg
 
 It may also be a culture of superstition and belief in Bigfoot. A quick, brief google search on "Washington Bigfoot Culture" yielded results such as "Skagit-Squatch Musuem", "Metaline Falls Bigfoot Festival", and a Youtube channel called the "Olympic Project," based in WA, and "committed to documenting the existence of Sasquatch through science and education" (the channel has been inactive for 11 years but made headlines on squatchable.com in 2025 for their discovery of "bigfoot nests" located near a salmon-rich riverbed, believed to be one of their food sources.)
 
-Regardless, with the large sample size to choose from, I believe Washington is a good candidate for my final visualization; a binomial regression seeking to predict the "quality" of a sighting. We have been given 3 levels of quality; Class A (best), Class B (fair), and Class C(poor). For the sake of simplicity, however, I am just going to code the quality as 1 (Class A, best) and 0 (Class C, worst), with the assumption that sightings around the middle of the regression line will be comparable to Class B encounters, as they have a 50/50 chance of being considered good or poor.
+Regardless, with the large sample size to choose from, I believe Washington is a good candidate for my final visualization; a linear regression seeking to predict the "quality" of a sighting. We have been given 3 levels of quality; Class A (best), Class B (fair), and Class C(poor). For the sake of simplicity, however, I am going to code the quality as 1 (Class A, best), 2 (Class B, fair), and 3(Class C, worst).
 
-Because the BFRO cites visibility as a major determinant of an encounter's quality, I am going to primarily use variables that I think impact a person's ability to accurately see a sasquatch through any kind of weather phenomenon, such as **visibility, precip_intensity,** and **precip_type.**
+Because the BFRO cites visibility as a major determinant of an encounter's quality, I am going to primarily use variables that I think impact a person's ability to accurately see a sasquatch through any kind of weather phenomenon, such as **visibility, precip_intensity,** and **precip_type.** Additionally, I want to use plotly to add some hovertext just giving some context to the points on plot, such as which **county** the encounter occurred in,
 
-First, I have to tidy the data by filtering out just the cases in Washington, coding the **classification** variable as binomial, and coding NAs in the precip_type variable as "None," with the assumption (and hope) that most of them are coded as NA because there was no precipitation, not because the precipitation type was not recorded.
+First, I have to tidy the data by filtering out just the cases in Washington, coding the **classification** variable as numeric, and coding NAs in the precip_type variable as "None," with the assumption (and hope) that most of them are coded as NA because there was no precipitation, not because the precipitation type was not recorded.
 
 ```{r}
 bigfoot_quality <- bigfoot %>%
@@ -218,34 +219,24 @@ pred_quality <- ggpredict(mod_quality, terms = c("visibility [fivenum]",
   as.data.frame(terms_to_colnames = TRUE) %>%
   as_tibble()
 
-ggplot(data = pred_quality, aes(x=visibility, y=predicted))+
+plot_quality <- ggplot(data = pred_quality, aes(x=visibility, y=predicted))+
   geom_line(aes(color = precip_intensity), linewidth = 1.5) +
   facet_wrap(~precip_type) +
   scale_color_brewer(palette = "Pastel1") +
   theme_dark() +
-  geom_point(data = bigfoot_quality, aes(y=quality, color = precip_type), alpha = 0.2)
+  geom_point(data = bigfoot_quality, aes(y=quality, 
+                                         color = precip_type,
+                                         Title = `title`,
+                                         County = county,
+                                         Classification = classification
+                                         ), alpha = 0.5) +
+  theme(base_size = 24)
+
+ggplotly(plot_quality, tooltip = c("Title", "County", "Classification"))
 ```
 
-So this graph is a little difficult to interpret, given the nature of the data, *however*, it is possible to make some interesting observations. For example, we see that there is only one Class C encounter recorded in Washington, and it was on a clear day with 10/10 visibility. As for the lines; unsurprisingly, clear days were closer to a classification of Class A than rainy days, across all visibilities and precipitation intensities. All around, it does look like as visibility increases, more encounters tend towards Class A. Interestingly, snowy days tended to be more credible than rainy days. My guess is that some of the evidence that the BFRO considered came in the form of traces left in the snow, like large footprints. There is also far less vegetation in the winter to obscure the big hairy form of Bigfoot through the branches.
+So this graph is a little difficult to interpret, given the nature of the data, *however*, it is possible to make some interesting observations. For example, we see that there is only one Class C encounter recorded in Washington, and it was on a clear day with 10/10 visibility. As for the lines; unsurprisingly, clear days were closer to a classification of Class A than rainy days, across all visibilities and precipitation intensities. All around, it does look like as visibility increases, more encounters tend towards Class A. Interestingly, snowy days tended to be more credible than rainy days. My guess is that some of the evidence that the BFRO considered came in the form of traces left in the snow , like large footprints (as referenced by 2/7 of the points in the "snow" panel). There is also far less vegetation in the winter to obscure the big hairy form of a Bigfoot through the branches.
 
-Notes:
+**Conclusions**
 
--   opportunity for some data mapping onto the U.S with both "state" and "county" variables as well as longitude and latitude for direct points.
-
--   No binary variables, BUT there are Class A, Class B, and Class C "encounters" which correspond to credibility of accounts. Could be tweaked.
-
--   Whole bunch of other weather-y variables that could be used to make just typical visualizations. Thinking definitely a line plot at some point
-
--   ALSO a date variable.
-
--   close reads
-
--   Commonly used words/terms with tidytext
-
--   cite BFRO, not just tidytuesday
-
-In tigris states \<- states(cb = TRUE)
-
-library(USABoundaries) states \<- us_states() use with geom_sf() in ggplot, have filter out hawaii
-
-claude might be resource
+Washington leads the U.S in the State with the most Bigfoot sightings, a pattern that has more or less existed since the first sighting in the early 1900s. Notably, Oregon and California have both appeared to be plateauing since roughly 2010, at an almost identical rate. Within Washington, the quality of Bigfoot sightings is significantly associated with the weather conditions at the time of the encounter, with snowy weather sightings and clear weather sightings having almost similar levels of credibility. It is worth noting, in connection with this, that when the weather is snowy, more intense precipitation leads to *better credibility* than sightings with *less intense* snowy conditions*.* This is different from rainy weather, where *more intense rain* is associated with *less credibility*. One potential explanation is that heavier snow is more likely to leave more defined footprints, which may contribute to the BFRO's assessment of credibility.
