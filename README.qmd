@@ -3,11 +3,6 @@ title: "Exploring Bigfoot Sightings in North America"
 format: gfm
 ---
 
-```{r}
-# data prep
-
-```
-
 ## Background
 
 Bigfoot is one of, if not the most famous North American cryptid. Sasquatch sightings dating back to the 1960s have been monitored on the BFRO's (Bigfoot Field Researchers' Organization) website, BFRO.org. TidyTueday scraped this data and provided it in their weekly Github blog, where I downloaded it. This dataset includes variables exact location (latitude, longitude, county, state) variables, variables that describe the weather conditions at the time of the encounter (such as precipitation type, visibility, and intensity of precipitation), and the BFRO's official classification of the encounter's credibility, with Class A being the best, and Class C being the worst (Class B in the middle).
